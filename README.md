@@ -32,11 +32,11 @@ docker compose down
 
 | Service | URL | Credentials |
 |---|---|---|
-| RabbitMQ Management | http://localhost:15672 | guest / guest |
+| RabbitMQ Management | http://localhost:15672 | See `.env` → `RABBITMQ_DEFAULT_USER` / `RABBITMQ_DEFAULT_PASS` |
 | Mailpit | http://localhost:8025 | — |
-| MinIO Console | http://localhost:9001 | sengrid / sengrid123 |
+| MinIO Console | http://localhost:9001 | See `.env` → `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` |
 | Prometheus | http://localhost:9090 | — |
-| Grafana | http://localhost:3000 | admin / admin |
+| Grafana | http://localhost:3000 | See `.env` → `GRAFANA_ADMIN_PASSWORD` |
 
 ## Prometheus
 
