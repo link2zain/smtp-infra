@@ -1,3 +1,4 @@
 grafana-data/
 postgres-data/
 minio-data/
+.env
