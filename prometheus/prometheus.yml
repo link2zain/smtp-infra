@@ -4,5 +4,9 @@ global:
 scrape_configs:
   - job_name: sengrid-backend
     metrics_path: /actuator/prometheus
+    # host.docker.internal only works for the local single-host layout (this compose file adds
+    # the extra_hosts entry it needs on native Linux). In the multi-VM production layout the
+    # backend runs on a different host than this Prometheus container — replace this with that
+    # VM's real IP or hostname, e.g. "203.0.113.10:8080".
     static_configs:
       - targets: ["host.docker.internal:8080"]

@@ -168,6 +168,13 @@ services:
     networks:
       - observability-net
       - app-net
+    # Makes host.docker.internal resolve on native Linux Docker Engine too, not just Docker
+    # Desktop — only relevant for the single-host/local layout where the backend runs as a
+    # sibling container on the same Docker host. In the multi-VM production layout, Prometheus
+    # and the backend are on different hosts entirely, so host.docker.internal can never reach it
+    # regardless — prometheus.yml's target must be set to that VM's real IP/hostname instead.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]

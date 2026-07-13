@@ -18,11 +18,13 @@ Docker Compose and configuration files for running the Sengrid platform infrastr
 ## Quick Start
 
 ```bash
-# Start all core services
-docker compose up -d
+# Start all core services — --compatibility makes Compose honor the deploy.resources.limits
+# CPU/memory caps set on every service below; without it they're silently ignored (that key only
+# applies natively under `docker stack deploy`/Swarm mode).
+docker compose --compatibility up -d
 
 # Start with local Postfix relay
-docker compose --profile relay up -d
+docker compose --compatibility --profile relay up -d
 
 # Stop all
 docker compose down
@@ -41,6 +43,8 @@ docker compose down
 ## Prometheus
 
 Scrapes the Spring Boot backend at `http://host.docker.internal:8080/actuator/prometheus` every 15 seconds. Config: `prometheus/prometheus.yml`.
+
+`host.docker.internal` only resolves to *this* Docker host (the compose file adds the `extra_hosts` entry needed for that to work on native Linux Engine, not just Docker Desktop) — it works out of the box only when the backend runs as a sibling container on the same single host as this compose stack. **In the multi-VM production layout below, Prometheus (VM4) and the backend (VM1) are different hosts**, so `host.docker.internal` can never reach it there; edit `prometheus/prometheus.yml`'s `targets` to VM1's actual IP or hostname instead.
 
 ## Production Deployment
 
