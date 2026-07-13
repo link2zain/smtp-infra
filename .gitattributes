@@ -1,0 +1,7 @@
+# Force LF line endings for shell scripts and configs read by Linux containers/hosts, regardless
+# of the checkout platform's core.autocrlf setting. A Windows checkout previously introduced CRLF
+# into redis/entrypoint.sh, which broke the container's shebang line at deploy time.
+*.sh text eol=lf
+*.conf text eol=lf
+*.template text eol=lf
+Dockerfile text eol=lf
