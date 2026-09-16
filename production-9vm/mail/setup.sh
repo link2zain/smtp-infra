@@ -105,6 +105,7 @@ if command -v ufw &>/dev/null; then
   ufw allow from 10.10.1.0/24 to any port 5672 proto tcp comment 'rabbitmq amqp - internal only'
   ufw allow from 10.10.1.0/24 to any port 15672 proto tcp comment 'rabbitmq mgmt ui - internal only'
   ufw allow from 10.10.1.0/24 to any port 25672 proto tcp comment 'rabbitmq clustering - internal only'
+  ufw allow from 10.10.1.0/24 to any port 15692 proto tcp comment 'rabbitmq prometheus - internal only'
   ufw --force enable
 else
   echo "    ufw not found — configure a firewall manually to restrict the above to 10.10.1.0/24"
