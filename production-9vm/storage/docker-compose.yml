@@ -1,0 +1,47 @@
+# 2-node / 4-drive erasure-coded cluster (EC:2). Verified locally (see storage tier local test):
+# reads keep working if one whole node goes down (2/4 drives is enough for read quorum), but NEW
+# WRITES ARE REFUSED until that node comes back (write quorum needs > N/2 drives, i.e. 3 of 4 — a
+# single lost node leaves exactly 2, one short). This is standard MinIO erasure-coding behavior,
+# not a misconfiguration, and it self-heals the moment the failed node rejoins. True write
+# availability during a full node loss would need at least 4 separate nodes, not just 4 drives
+# split across 2 — out of scope for the current 9-VM allocation (only 2 VMs assigned to storage).
+services:
+  minio:
+    image: quay.io/minio/minio:latest
+    # Host networking, not published ports: MinIO's distributed mode needs every node to see every
+    # other node's real address, and Docker's normal port-publishing bypasses ufw entirely (found
+    # the hard way setting up the DB tier) since Docker manages it via its own iptables rules. Host
+    # networking means MinIO binds directly to the VM's own network stack, so ufw filters it like
+    # any other host process — no separate bypass to account for.
+    network_mode: host
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - /var/minio-data/disk1:/data1
+      - /var/lib/minio-data/disk2:/data2
+    # Identical on every node in the cluster — MinIO determines which of these 4 endpoints is
+    # itself by matching against its own network interfaces, not from any per-node config.
+    command: >
+      server
+      http://10.10.1.10:9000/data1
+      http://10.10.1.10:9000/data2
+      http://10.10.1.11:9000/data1
+      http://10.10.1.11:9000/data2
+      --console-address :9001
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 4G
