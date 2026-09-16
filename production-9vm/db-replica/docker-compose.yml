@@ -1,0 +1,40 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+
+networks:
+  db-net:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    entrypoint: ["/usr/local/bin/replica-entrypoint.sh"]
+    environment:
+      PGUSER: replicator
+      PGPASSWORD: ${REPLICATION_PASSWORD}
+      PRIMARY_HOST: ${PRIMARY_HOST}
+      PGDATA: /var/lib/postgresql/data
+    ports:
+      - "10.10.1.6:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./replica-entrypoint.sh:/usr/local/bin/replica-entrypoint.sh:ro
+    networks:
+      - db-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U replicator"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+
+volumes:
+  postgres-data:
