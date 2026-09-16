@@ -41,6 +41,13 @@ cp "$SCRIPT_DIR/docker-compose.yml" "$TARGET_DIR/"
 cp "$SCRIPT_DIR/replica-entrypoint.sh" "$TARGET_DIR/"
 chmod +x "$TARGET_DIR/replica-entrypoint.sh"
 
+REPLICATION_PASSWORD_VALUE="REPLACE_WITH_YOUR_OWN_GENERATED_SECRET"
+if [ "$REPLICATION_PASSWORD_VALUE" = "REPLACE_WITH_YOUR_OWN_GENERATED_SECRET" ]; then
+  echo "FATAL: edit this script and replace REPLICATION_PASSWORD_VALUE with the exact same real" >&2
+  echo "       secret already generated into smtp-db-primary's .env before running this." >&2
+  exit 1
+fi
+
 ENV_FILE="$TARGET_DIR/.env"
 if [ -f "$ENV_FILE" ]; then
   echo "==> $ENV_FILE already exists — leaving it alone"
@@ -50,7 +57,7 @@ else
     echo "PRIMARY_HOST=$PRIMARY_HOST"
     # Must match smtp-db-primary's REPLICATION_PASSWORD exactly — both are fixed to the same
     # generated value in their respective setup.sh for this reason.
-    echo "REPLICATION_PASSWORD=REPLACE_WITH_YOUR_OWN_GENERATED_SECRET"
+    echo "REPLICATION_PASSWORD=$REPLICATION_PASSWORD_VALUE"
   } > "$ENV_FILE"
   chmod 600 "$ENV_FILE"
 fi

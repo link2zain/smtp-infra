@@ -39,6 +39,13 @@ echo "==> Setting up $TARGET_DIR"
 mkdir -p "$TARGET_DIR"
 cp "$SCRIPT_DIR/docker-compose.yml" "$TARGET_DIR/"
 
+MINIO_ROOT_PASSWORD_VALUE="REPLACE_WITH_YOUR_OWN_GENERATED_SECRET"
+if [ "$MINIO_ROOT_PASSWORD_VALUE" = "REPLACE_WITH_YOUR_OWN_GENERATED_SECRET" ]; then
+  echo "FATAL: edit this script and replace MINIO_ROOT_PASSWORD_VALUE with a real generated secret" >&2
+  echo "       (same value on both storage nodes) before running it against a real VM." >&2
+  exit 1
+fi
+
 ENV_FILE="$TARGET_DIR/.env"
 if [ -f "$ENV_FILE" ]; then
   echo "==> $ENV_FILE already exists — leaving it alone"
@@ -48,7 +55,7 @@ else
     echo "MINIO_ROOT_USER=sengrid-admin"
     # Fixed (not randomly generated) — every node in the cluster must use the identical value,
     # and there's no passwordless way to read one node's secret back to sync into another.
-    echo "MINIO_ROOT_PASSWORD=REPLACE_WITH_YOUR_OWN_GENERATED_SECRET"
+    echo "MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD_VALUE"
   } > "$ENV_FILE"
   chmod 600 "$ENV_FILE"
 fi

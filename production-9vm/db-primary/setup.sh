@@ -36,6 +36,13 @@ cp "$SCRIPT_DIR/redis.conf.template" "$TARGET_DIR/"
 cp "$SCRIPT_DIR/redis-entrypoint.sh" "$TARGET_DIR/"
 chmod +x "$TARGET_DIR/redis-entrypoint.sh" "$TARGET_DIR/init-replication.sh"
 
+REPLICATION_PASSWORD_VALUE="REPLACE_WITH_YOUR_OWN_GENERATED_SECRET"
+if [ "$REPLICATION_PASSWORD_VALUE" = "REPLACE_WITH_YOUR_OWN_GENERATED_SECRET" ]; then
+  echo "FATAL: edit this script and replace REPLICATION_PASSWORD_VALUE with a real generated secret" >&2
+  echo "       (same value on both db-primary and db-replica) before running it against a real VM." >&2
+  exit 1
+fi
+
 ENV_FILE="$TARGET_DIR/.env"
 if [ -f "$ENV_FILE" ]; then
   echo "==> $ENV_FILE already exists — leaving it alone (delete it first if you want fresh secrets)"
@@ -47,7 +54,7 @@ else
     echo "POSTGRES_PASSWORD=$(openssl rand -base64 24)"
     # Fixed (not randomly generated here) because smtp-db-replica's setup script needs the exact
     # same value and there's no passwordless way to read this file back across VMs to sync it.
-    echo "REPLICATION_PASSWORD=REPLACE_WITH_YOUR_OWN_GENERATED_SECRET"
+    echo "REPLICATION_PASSWORD=$REPLICATION_PASSWORD_VALUE"
     echo "REDIS_PASSWORD=$(openssl rand -base64 24)"
   } > "$ENV_FILE"
   chmod 600 "$ENV_FILE"
