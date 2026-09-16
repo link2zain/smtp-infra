@@ -1,0 +1,17 @@
+[Unit]
+Description=Postafly (Sengrid) backend
+After=network.target
+
+[Service]
+Type=simple
+User=sengrid
+Group=sengrid
+EnvironmentFile=/opt/sengrid/backend.env
+ExecStart=/usr/bin/java -jar /opt/sengrid/backend/app.jar
+Restart=on-failure
+RestartSec=5
+# Flyway migrations + JVM startup can take a while on first boot against a fresh DB.
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target
