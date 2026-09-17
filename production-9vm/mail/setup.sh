@@ -76,7 +76,7 @@ fi
 echo "==> Installing Postfix (native, non-interactive) — single default listener for now"
 if ! command -v postfix &>/dev/null; then
   debconf-set-selections <<< "postfix postfix/main_mailer_type select Internet Site"
-  debconf-set-selections <<< "postfix postfix/mailname string $MY_HOSTNAME.postafly.pk"
+  debconf-set-selections <<< "postfix postfix/mailname string $MY_HOSTNAME.postafly.com.pk"
   DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postfix
 else
   echo "    postfix already installed"
@@ -84,8 +84,8 @@ fi
 
 echo "==> Configuring Postfix as a trusted-LAN relay for smtp-app (no auth, no TLS -- matches"
 echo "    SmtpMailProvider's JavaMailSenderImpl config: mail.smtp.auth=false, starttls=false)"
-postconf -e "myhostname = $MY_HOSTNAME.postafly.pk"
-postconf -e "mydomain = postafly.pk"
+postconf -e "myhostname = $MY_HOSTNAME.postafly.com.pk"
+postconf -e "mydomain = postafly.com.pk"
 postconf -e "myorigin = \$mydomain"
 postconf -e "inet_interfaces = all"
 postconf -e "mydestination = \$myhostname, localhost.\$mydomain, localhost"
