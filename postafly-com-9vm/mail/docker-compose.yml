@@ -1,0 +1,33 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    # Host networking: ufw's per-source rules only apply to host-network containers (Docker-
+    # published ports bypass them), and clustering needs each node to see the others' real address.
+    network_mode: host
+    environment:
+      RABBITMQ_NODENAME: ${RABBITMQ_NODENAME}
+      RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+
+volumes:
+  rabbitmq-data:

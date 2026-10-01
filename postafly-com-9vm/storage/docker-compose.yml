@@ -1,0 +1,49 @@
+# 2-node / 4-drive erasure-coded MinIO cluster (EC:2). Same behavior as the postafly.com.pk cluster:
+# reads keep working if one whole node goes down, but NEW WRITES ARE REFUSED until that node comes
+# back (write quorum needs > N/2 drives, i.e. 3 of 4). True write availability during a node loss
+# needs at least 4 separate nodes.
+#
+# Difference from postafly.com.pk: each VM here has ONE 1 TB data disk (mounted at /var), not two
+# 500 GB disks, so both "drives" on a node are directories on the same filesystem. Erasure coding
+# still spreads data and parity across the two nodes; it just can't survive a single-disk failure
+# that takes out both directories on one node at once -- which is the same as losing the node.
+# Capacity: MinIO counts each directory as a separate drive, so it reports ~1.9 TiB usable, but the
+# real usable space is about 1 TB (two 1 TB disks, half of it parity). Don't trust its free-space
+# figure -- watch the VMs' /var usage instead.
+services:
+  minio:
+    # Pinned: MinIO stopped publishing community images/binaries (quay.io now answers 401 and
+    # dl.min.io 410), so this exact release is loaded from minio-images-*.tar.gz -- see setup.sh.
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # Host networking so ufw's per-source rules apply (Docker-published ports bypass them).
+    network_mode: host
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - /var/minio-data/disk1:/data1
+      - /var/minio-data/disk2:/data2
+    # Identical on every node -- MinIO works out which endpoints are itself from its interfaces.
+    command: >
+      server
+      http://${STORAGE1_IP}:9000/data1
+      http://${STORAGE1_IP}:9000/data2
+      http://${STORAGE2_IP}:9000/data1
+      http://${STORAGE2_IP}:9000/data2
+      --console-address :9001
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 4G

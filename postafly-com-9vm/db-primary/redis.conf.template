@@ -1,0 +1,7 @@
+# Redis configuration — password set from REDIS_PASSWORD env var at container start
+# This file is used instead of --requirepass CLI arg to keep the password out of /proc
+
+requirepass ${REDIS_PASSWORD}
+appendonly yes
+maxmemory 200mb
+maxmemory-policy allkeys-lru

@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: sengrid-backend
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["193.168.10.80:8080"]
+
+  # RabbitMQ's management plugin exposes Prometheus metrics on 15692 by default (no separate
+  # exporter needed) -- all 3 mail nodes, since each is a cluster member with its own local stats.
+  - job_name: rabbitmq
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["193.168.10.83:15692", "193.168.10.84:15692", "193.168.10.85:15692"]
+        labels:
+          cluster: mail
+
+  # MinIO and Postgres aren't scraped yet -- MinIO's /minio/v2/metrics/cluster needs a bearer
+  # token (mc admin prometheus generate), and Postgres needs postgres_exporter deployed alongside
+  # it. Worth adding later.

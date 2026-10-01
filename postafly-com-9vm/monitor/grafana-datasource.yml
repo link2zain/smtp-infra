@@ -1,0 +1,10 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    # Both containers use host networking, so Prometheus is reachable on localhost.
+    url: http://localhost:9090
+    isDefault: true
+    editable: true

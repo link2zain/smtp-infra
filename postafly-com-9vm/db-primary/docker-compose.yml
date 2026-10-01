@@ -1,0 +1,71 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+
+# Host networking for both services: this VM sits on a shared LAN, so access has to be limited
+# per source IP by ufw (see setup.sh) -- and Docker-published ports bypass ufw's source rules.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    network_mode: host
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD}
+      REPLICA_IP: ${REPLICA_IP}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-replication.sh:/docker-entrypoint-initdb.d/init-replication.sh:ro
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_replication_slots=10
+      - -c
+      - hot_standby=on
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+
+  redis:
+    image: redis:7-alpine
+    network_mode: host
+    entrypoint: ["/usr/local/bin/redis-entrypoint.sh"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+      - ./redis.conf.template:/usr/local/etc/redis/redis.conf.template:ro
+      - ./redis-entrypoint.sh:/usr/local/bin/redis-entrypoint.sh:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+volumes:
+  postgres-data:
+  redis-data:
