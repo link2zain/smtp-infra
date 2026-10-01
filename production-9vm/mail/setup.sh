@@ -86,7 +86,10 @@ echo "==> Configuring Postfix as a trusted-LAN relay for smtp-app (no auth, no T
 echo "    SmtpMailProvider's JavaMailSenderImpl config: mail.smtp.auth=false, starttls=false)"
 postconf -e "myhostname = $MY_HOSTNAME.postafly.com.pk"
 postconf -e "mydomain = postafly.com.pk"
-postconf -e "myorigin = \$mydomain"
+# $myhostname, not $mydomain: this box is a relay, not the domain's mail server. With $mydomain,
+# unqualified addresses (the postmaster -> root system alias) became root@<domain> and were sent to
+# the domain's real MX instead of staying local.
+postconf -e "myorigin = \$myhostname"
 postconf -e "inet_interfaces = all"
 postconf -e "mydestination = \$myhostname, localhost.\$mydomain, localhost"
 # Only the private subnet may relay through this box -- nothing from the public internet.

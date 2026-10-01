@@ -65,6 +65,8 @@ else
     # No public DNS/IP for this environment yet -- private IP is the only real origin that
     # exists right now. Update once a real domain/public IP is in place.
     echo "SENGRID_CORS_ALLOWED_ORIGINS=http://10.10.1.4"
+    # Required by the backend's docker profile: From address for system emails (password reset).
+    echo "SENGRID_MAIL_SYSTEM_FROM=noreply@postafly.com.pk"
     echo "SPRING_RABBITMQ_ADDRESSES=10.10.1.7:5672,10.10.1.8:5672,10.10.1.9:5672"
     echo "SPRING_RABBITMQ_USERNAME=sengrid"
     echo "SPRING_RABBITMQ_PASSWORD=$RABBITMQ_PASSWORD_VALUE"
