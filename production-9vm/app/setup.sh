@@ -75,6 +75,12 @@ else
     echo "SPRING_MAIL_HOST=10.10.1.7"
     echo "SPRING_MAIL_PORT=25"
     echo "SENGRID_MAIL_PROVIDER=self-hosted-smtp"
+    # What customers are told to publish for their own domains. _spf.postafly.com.pk is a TXT
+    # record listing the three mail IPs; customers add "include:_spf.postafly.com.pk" to their SPF.
+    # Without these three the app falls back to placeholders (sengrid.local, bounce.local).
+    echo "SENGRID_RELAY_SPF_INCLUDE=_spf.postafly.com.pk"
+    echo "SENGRID_TRACKING_CNAME_TARGET=postafly.com.pk"
+    echo "SENGRID_RELAY_BOUNCE_DOMAIN=postafly.com.pk"
   } > "$ENV_FILE"
   chmod 600 "$ENV_FILE"
   chown sengrid:sengrid "$ENV_FILE"
