@@ -96,3 +96,12 @@ SENGRID_JWT_SECRET=<64_char_random_secret>
 SENGRID_CORS_ALLOWED_ORIGINS=https://yourdomain.com
 SENGRID_TRACKING_BASE_URL=https://yourdomain.com
 ```
+
+## DNS and mail identity for postafly.com.pk (state on 2026-10-22)
+
+Cloudflare zone `postafly.com.pk`: A for the apex/www (web) and smtp-mail-1/2/3 (the three sending IPs,
+each with matching reverse DNS); apex SPF (the three IPs + Cloudflare Email Routing); `_spf` helper
+record that customers include; SPF `v=spf1 a -all` on each smtp-mail-N hostname; DMARC; DKIM key
+`postafly1._domainkey` for the platform's own emails (private half only in `backend.env` as
+`SENGRID_MAIL_SYSTEM_DKIM_*`, never in git); `bounces.postafly.com.pk` MX to smtp-mail-1 plus SPF.
+Bounce mailbox setup: `production-9vm/mail/bounce-mailbox.sh`.
