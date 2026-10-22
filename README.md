@@ -185,3 +185,18 @@ Customer documentation: `smtp-backend/docs/SEND_API.md`. Operations notes:
   `"<X-Postafly-Timestamp>.<body>"`. Internal steps (queued, published, processing, retries) are never sent.
 - **Rollback:** the V32 changes are additive with defaults, so the previous jar (`app.jar.bak-20261022-pre-send-api`) still runs against the migrated
   database. Database backup: `/var/backups/sengrid/pre-V32-20261022.sql.gz` on smtp-db-primary.
+
+## Honest numbers and unsubscribe lists (V33/V34), live since 2026-10-22
+
+- **Suppressions:** `UNSUBSCRIBE` rows stop marketing mail only (all of it when the row has no group, one list when it has a group); `BOUNCE`,
+  `COMPLAINT`, manual and other rows with no group stop all mail. Messages record their list in `email_messages.suppression_group_id`
+  (the request's `suppressionGroupId`, else the default group under Compliance). V34 changes the unique rule to one row per address, type and
+  group (Postgres: expression index; the H2 twin cannot guard the "no group" case).
+- **Sending limits for customers:** `GET /api/v1/sending-limits`; shown on the Dashboard and the Send page. The stage rules live in `WarmupStage`
+  (minimum days 3 / 7 / 14, volume bar `sengrid.relay.warmup.min-stage-volume-fraction`, bounce limit `promotion-bounce-threshold`).
+- **Pricing page:** `GET /api/v1/public/plans` (no sign-in) reads `plans` and `plan_limits`, so the public page cannot drift from what is enforced.
+- **Complaint rate** is shown as "Not measured yet" until `SENGRID_RELAY_IMAP_COMPLAINT_WORKER_ENABLED` (a real feedback-loop mailbox) is switched on.
+- **Link tracking domain:** not offered. The columns `tracking_cname_host/target` still exist in `domain_authentications` (an older jar reads them)
+  but nothing uses them, and `SENGRID_TRACKING_CNAME_TARGET` is no longer read.
+- **Rollback:** both migrations are safe for the previous jar (`app.jar.bak-20261022-pre-a4`). Database backup:
+  `/var/backups/sengrid/pre-V33-20261022.sql.gz` on smtp-db-primary.

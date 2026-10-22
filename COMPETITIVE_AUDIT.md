@@ -204,6 +204,18 @@ provider-specific failure analysis, bounce and block classification inputs, thro
    customer sees only an error. Show it, with the current stage and when it lifts.
 6. **Suppression groups** exist but do not behave like groups (see 4.2).
 
+**Status on 22 October 2026 (all six fixed in Phase A):**
+1. Delivery rate: counts real delivered/bounced/blocked results from the mail servers (A1).
+2. Link tracking domain: the claim and the `track.` CNAME were **removed** (A4). Links use postafly.com.pk and are signed (A2). A branded link
+   domain would need automatic TLS for every customer domain (for example Caddy with on-demand certificates), which is a separate project.
+3. Open rate: unique opens, never above 100%, with Apple pre-loads and scanners separated (A2).
+4. Complaint rate: shows "Not measured yet" until a feedback loop is connected (A4).
+5. Warm-up limits: shown on the Dashboard and Send page with usage and when they lift; the "limit reached" error now explains itself (A4).
+6. Suppression groups now behave as lists: an unsubscribe stops marketing for that list (or all marketing), never transactional mail; bounces
+   and complaints still stop everything; the unsubscribe page offers the choice (A4).
+Also fixed in A4: the pricing page now reads the real plan limits (it showed outdated Free and Growth numbers); the plain-text part of marketing
+mail now carries the postal address and unsubscribe link; the admin plan editor can set picture storage.
+
 ## 7. Industry requirements (Gmail, Yahoo, Microsoft)
 
 For bulk senders (the commonly cited line is 5,000+ messages a day to one provider's consumers) all three now require
