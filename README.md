@@ -105,3 +105,24 @@ record that customers include; SPF `v=spf1 a -all` on each smtp-mail-N hostname;
 `postafly1._domainkey` for the platform's own emails (private half only in `backend.env` as
 `SENGRID_MAIL_SYSTEM_DKIM_*`, never in git); `bounces.postafly.com.pk` MX to smtp-mail-1 plus SPF.
 Bounce mailbox setup: `production-9vm/mail/bounce-mailbox.sh`.
+
+## Picture hosting (image library), live since 2026-10-22
+
+Customers upload pictures in the console ("Pictures") and use the public link in emails.
+- **Files:** MinIO bucket `postafly-images` on the storage pair (10.10.1.10/.11). Created by
+  `production-9vm/storage/images-bucket.sh` (run on smtp-storage-1): public read of single files only (no
+  listing), plus a service account `postafly-images-app` limited to that one bucket. Its password is in
+  `/root/postafly-images-app.env` on smtp-storage-1 and as `SENGRID_IMAGES_SECRET_KEY` in the backend env.
+- **Public address:** `https://img.postafly.com.pk/<32 hex>.<jpg|png|gif>`. nginx on smtp-app
+  (`production-9vm/app/nginx-img.conf.template`, installed by `production-9vm/app/enable-images.sh`) serves
+  only that exact shape, fetches from MinIO over the private network, and keeps a 10-minute copy
+  (`proxy_cache_use_stale` keeps pictures showing if a storage node is briefly down). The DNS record is
+  DNS-only (grey cloud): Cloudflare's CDN is optional and needs the zone's SSL mode on Full/Full (strict).
+- **Uploads:** the main site's nginx allows 11 MB for `/api/v1/images` (default is 1 MB). The backend accepts
+  10 MB, shrinks to 1200 px wide, and stores at most 2 MB per picture.
+- **Limits:** per plan `plan_limits.image_storage_mb` (free 200 MB, starter 1 GB, growth 5 GB, business 20 GB,
+  enterprise 100 GB), override per organization in `organization_quota_overrides.image_storage_mb`.
+- **Backend settings:** `SENGRID_IMAGES_ENDPOINT / _BUCKET / _PUBLIC_BASE_URL / _ACCESS_KEY / _SECRET_KEY`.
+  Leave the endpoint empty to switch the feature off (the Pictures page then says so).
+- **Known gap:** nothing deletes an organization's pictures when the organization itself is removed (there is
+  no organization-deletion flow yet), so such files would have to be removed from the bucket by hand.

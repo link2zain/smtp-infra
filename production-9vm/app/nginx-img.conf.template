@@ -1,0 +1,84 @@
+# Public picture hosting: https://__IMG_HOST__/<32 hex characters>.<jpg|png|gif>
+# Installed as /etc/nginx/conf.d/postafly-img.conf by enable-images.sh.
+#
+# The public never reaches MinIO. nginx fetches single files from the storage servers over the private
+# network and keeps a copy, so most requests never leave this server and pictures keep showing for a
+# while even if a storage server is briefly down. Only the exact shape of a stored picture is served;
+# every other path (including anything that looks like a bucket listing) is a plain 404.
+
+proxy_cache_path /var/cache/nginx/postafly-img levels=1:2 keys_zone=pfimg:10m max_size=2g inactive=7d use_temp_path=off;
+
+upstream pf_minio {
+    server 10.10.1.10:9000 max_fails=2 fail_timeout=10s;
+    server 10.10.1.11:9000 backup;      # any MinIO node can serve reads
+    keepalive 16;
+}
+
+server {
+    # Served on both ports on purpose: these are public pictures, and a plain-http answer (no redirect)
+    # means a CDN in front of this host can never get stuck in a redirect loop. (Port 80 is not reachable
+    # from the internet on this network anyway; picture links are always https.)
+    listen 80;
+    listen 443 ssl;
+    http2 on;
+    server_name __IMG_HOST__;
+
+    ssl_certificate     /etc/letsencrypt/live/__IMG_HOST__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__IMG_HOST__/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+
+    server_tokens off;
+
+    location ~ "^/[0-9a-f]{32}\.(jpg|png|gif)$" {
+        limit_except GET HEAD { deny all; }
+
+        proxy_pass http://pf_minio/postafly-images$uri;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Authorization "";
+        # MinIO refuses a Host header that is not a valid hostname, and "pf_minio" (the upstream's name) has an underscore.
+        proxy_set_header Host minio.internal;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 15s;
+
+        proxy_cache pfimg;
+        proxy_cache_key $uri;
+        proxy_cache_valid 200 10m;      # a deleted picture stops being served from this server within ten minutes
+                                        # (a burst of opens right after a send is still answered from the copy)
+        proxy_cache_valid 404 1m;
+        proxy_cache_lock on;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+
+        proxy_intercept_errors on;
+        error_page 400 403 404 405 = @notfound;
+
+        proxy_hide_header X-Amz-Request-Id;
+        proxy_hide_header X-Amz-Id-2;
+        proxy_hide_header X-Amz-Version-Id;
+        proxy_hide_header X-Minio-Deployment-Id;
+        proxy_hide_header X-Amz-Server-Side-Encryption;
+        proxy_hide_header X-Content-Type-Options;     # we add our own below
+
+        add_header Cache-Control "public, max-age=86400" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Content-Security-Policy "default-src 'none'; img-src 'self'; sandbox" always;
+        add_header Cross-Origin-Resource-Policy "cross-origin" always;
+        add_header X-Cache $upstream_cache_status always;
+    }
+
+    location @notfound {
+        types { }                       # otherwise the .png in the URL makes nginx label this text as a PNG
+        default_type text/plain;
+        add_header Cache-Control "public, max-age=60" always;
+        return 404 "Not found\n";
+    }
+
+    location / {
+        types { }
+        default_type text/plain;
+        return 404 "Not found\n";
+    }
+}
