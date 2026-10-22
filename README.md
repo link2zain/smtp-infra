@@ -170,3 +170,18 @@ server answered. Now each mail server reports it:
   within `sengrid.tracking.bot-click-seconds` = 3 s of delivery). Bots are kept but never counted or sent to
   webhooks. The Apple rule is a best guess (Apple's Private Relay partner ranges are not covered), so treat "likely
   read" as an estimate and check it against real traffic once customers send.
+
+## Send API (V32), live since 2026-10-22
+
+Customer documentation: `smtp-backend/docs/SEND_API.md`. Operations notes:
+- **Limits:** the send endpoint accepts bodies up to 12 MB (nginx `location = /api/v1/mail/send`, so 7 MB of attachments fit); every other
+  `/api/` path keeps nginx's 1 MB default. Up to 100 recipients per request, 7 MB of attachments, 10 files.
+- **Rate limit:** about 20 requests/second per organization (burst 40), in memory on smtp-app. Override with `SENGRID_MAIL_RATE_LIMIT_PER_SECOND`
+  and `SENGRID_MAIL_RATE_LIMIT_BURST`; `SENGRID_MAIL_MAX_RECIPIENTS_PER_REQUEST` and `SENGRID_MAIL_MAX_ATTACHMENT_BYTES` change the other caps.
+- **Scheduled sends** wait in the database (`email_messages.status = SCHEDULED`, content in `email_batch_content`) and a job on smtp-app releases them
+  every 15 s (`SENGRID_MAIL_SCHEDULED_POLL_MS`). Warm-up caps are checked at release; a message that cannot be released for 24 h is dropped.
+  Attachments and scheduled content older than 7 days, and idempotency keys older than 24 h, are deleted hourly.
+- **Webhooks** are delivered by up to 4 parallel workers and polled every 3 s (`sengrid.webhooks.retry-poll-ms`); the signature covers
+  `"<X-Postafly-Timestamp>.<body>"`. Internal steps (queued, published, processing, retries) are never sent.
+- **Rollback:** the V32 changes are additive with defaults, so the previous jar (`app.jar.bak-20261022-pre-send-api`) still runs against the migrated
+  database. Database backup: `/var/backups/sengrid/pre-V32-20261022.sql.gz` on smtp-db-primary.
