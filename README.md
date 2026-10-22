@@ -126,3 +126,27 @@ Customers upload pictures in the console ("Pictures") and use the public link in
   Leave the endpoint empty to switch the feature off (the Pictures page then says so).
 - **Known gap:** nothing deletes an organization's pictures when the organization itself is removed (there is
   no organization-deletion flow yet), so such files would have to be removed from the bucket by hand.
+
+## Delivery results from the mail servers, live since 2026-10-22
+
+Until now a message became `SENT` when our own Postfix accepted it, and nothing recorded what the receiving
+server answered. Now each mail server reports it:
+- **Shipper:** `production-9vm/mail/logship/` (`postafly-logship.py`, run by systemd as `postafly-logship`).
+  It follows `/var/log/mail.log`, joins each customer message's Postfix lines by queue id (the envelope sender
+  `bounce+<message id>@bounces.postafly.com.pk` names the message) and posts batches to
+  `http://10.10.1.4:8080/api/v1/internal/delivery-events` with the header `X-Postafly-Relay-Token`.
+  Install or update on a mail VM: copy the folder, then `sudo bash install.sh <token-file>`. The installer also
+  sets `smtp_tls_loglevel = 1` so each delivery can say whether it was encrypted.
+- **Token:** `SENGRID_RELAY_INGEST_TOKEN` in `/opt/sengrid/backend.env` (48 hex characters, same value in
+  `/etc/postafly-logship/token` on each mail VM, readable by root and the service user only). Empty = endpoint off.
+- **Private only:** the shippers use port 8080 on the private network (ufw allows 10.10.1.0/24); the public
+  nginx answers 404 for `/api/v1/internal/`.
+- **Result:** the message becomes `DELIVERED`, `BOUNCED` or `BLOCKED` (reputation/content/policy refusals, which
+  never suppress the address); deferrals add a "delayed" event and the message stays "in transit". Events carry
+  the SMTP code, enhanced status, the receiving server's reply, TLS and time taken. Safe to replay: events are
+  unique per (message, id), so restarting the shipper or re-reading the log changes nothing.
+- **Still needed:** the old bounce-mailbox path stays on as a backstop. Some servers (zmdservice.com at InMotion
+  was one) accept mail for a mailbox that does not exist and only bounce later by email, or never; those show
+  as delivered until the bounce email arrives.
+- **Health:** Admin > Relay health lists each mail server's feed (silent for over 5 minutes shows as such).
+- **Tests:** `python3 -m unittest test_logship` in that folder (the log-rotation test only runs on Linux).
