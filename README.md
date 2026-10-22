@@ -150,3 +150,23 @@ server answered. Now each mail server reports it:
   as delivered until the bounce email arrives.
 - **Health:** Admin > Relay health lists each mail server's feed (silent for over 5 minutes shows as such).
 - **Tests:** `python3 -m unittest test_logship` in that folder (the log-rotation test only runs on Linux).
+
+## Opens and clicks: who made them (live since 2026-10-22)
+
+- **Links reach the backend:** nginx now forwards `/track/` (open pixel, click redirect) and `/unsubscribe/` to the
+  backend. Before this they fell through to the website's home page, so pixels, click links and unsubscribe links
+  in sent emails did not work. Fixed in `production-9vm/app/nginx-https.conf.template`, `nginx.conf` and
+  `postafly-com-9vm/website/nginx.conf` (live on postafly.com.pk; the postafly.com replica still needs the new file).
+- **Click links are signed** (HMAC, `s=` parameter) with `SENGRID_TRACKING_LINK_SECRET`, which defaults to the JWT
+  secret. A link whose address was changed, or that has no signature, answers 404 instead of redirecting.
+- **Country:** free DB-IP Lite country file at `/opt/sengrid/geoip/dbip-country-lite.mmdb`
+  (`SENGRID_GEOIP_DATABASE` in backend.env). `production-9vm/app/geoip-update.sh` fetches it; `/etc/cron.d/postafly-geoip`
+  refreshes it on the 5th of each month and the backend notices a new file within ten minutes. CC BY 4.0: the
+  Analytics page shows "IP Geolocation by DB-IP" beside the countries. No file = no countries, nothing else breaks.
+- **Real visitor address** reaches the backend through Trubyte and nginx (checked on 2026-10-22). Only the network
+  (`a.b.c.0/24`, or /48 for IPv6) is stored, never the full address.
+- **Who counts:** each event is HUMAN, APPLE_PROXY (request from Apple's 17.0.0.0/8 block: Mail Privacy Protection
+  pre-loading), MAIL_PROXY (Gmail/Yahoo image proxy) or BOT (scanner or script user agent, HEAD request, or a click
+  within `sengrid.tracking.bot-click-seconds` = 3 s of delivery). Bots are kept but never counted or sent to
+  webhooks. The Apple rule is a best guess (Apple's Private Relay partner ranges are not covered), so treat "likely
+  read" as an estimate and check it against real traffic once customers send.
