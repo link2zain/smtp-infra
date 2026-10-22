@@ -1,0 +1,31 @@
+[Unit]
+Description=Postafly delivery log shipper (reports Postfix delivery results to the backend)
+After=network-online.target postfix.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=postafly-logship
+Group=postafly-logship
+# members of "adm" may read /var/log/mail.log
+SupplementaryGroups=adm
+ExecStart=/usr/bin/python3 /opt/postafly-logship/postafly-logship.py \
+    --url http://10.10.1.4:8080/api/v1/internal/delivery-events \
+    --token-file /etc/postafly-logship/token \
+    --state /var/lib/postafly-logship/state.json
+Restart=always
+RestartSec=5
+StateDirectory=postafly-logship
+StateDirectoryMode=0750
+# The service only reads one log file and talks to one internal address. (postqueue, used as a last resort to look up
+# a queued message's sender, is setgid, so NoNewPrivileges is deliberately left off.)
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_UNIX
+LimitNOFILE=1024
+
+[Install]
+WantedBy=multi-user.target
