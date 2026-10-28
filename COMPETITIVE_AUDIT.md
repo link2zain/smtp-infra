@@ -250,6 +250,21 @@ Searchable, paged Activity with filters and CSV export; statistics with date ran
 by category, stream, campaign, API key and provider; provider and category comparison with rates; saved views; an events API
 with pagination. *Medium.*
 
+**Status on 28 October 2026 (Phase B built and live):** the Activity page searches and pages through all mail (date range, status, type,
+category, API key, campaign, provider, domain, source, engagement, free text) with CSV export and named saved views; the new Reports page
+has hour, day, week and month charts on the viewer's clock, nine totals with rates, and side-by-side comparison by provider, domain,
+category, API key, campaign, type and source, with CSV. Scoreboard items now HAVE: 3.2.4 (search), 3.2.5 (events search with paging and CSV),
+3.3.1 (hourly to monthly), 3.3.2 (campaign and category comparison), 3.3.3 (API-key comparison; there are still no subusers),
+3.3.4 (provider comparison with rates, by recipient domain only, not by MX host) and 3.3.7 (custom ranges, saved views).
+Still PARTLY: 3.3.6 (categories filter and compare, custom arguments do not). Not done in Phase B:
+- The new endpoints answer to console sign-in only. An API key cannot read them, on purpose: today every key can send, and a key that
+  could also read activity would expose recipients. Developer access needs scope-aware keys (a read scope separate from `mail:send`).
+  Note the older `/api/v1/dashboard/overview` already answers to any send key and returns the last 12 events with recipient addresses.
+- Country, device and email-client breakdowns are stored since A2 but are not yet a report dimension.
+- Reports use the sent date; there is no "by event date" view.
+Checked against real PostgreSQL with 300 seeded messages (every total equals an independent SQL count); API reference in the backend repo,
+`docs/REPORTING_API.md`. Migration V35 adds `saved_views` and an index on `(organization_id, created_at)`.
+
 **Phase C: deliverability intelligence (about 1.5 weeks)**
 SMTP error classification (SendGrid-style categories plus Gmail and Outlook specific rules); daily domain health checks
 (SPF, DKIM, DMARC, reverse DNS, TLS) with alerts when something breaks; blocklist monitoring; alerts and anomaly detection
