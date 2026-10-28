@@ -29,7 +29,7 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOG_PATH = os.path.join(HERE, "sent_log.csv")
-LOG_FIELDS = ["address", "template", "send_at", "http", "status", "message_id", "batch_id", "note"]
+LOG_FIELDS = ["address", "round", "template", "send_at", "http", "status", "message_id", "batch_id", "note"]
 EMAIL = re.compile(r"^[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
 
 
@@ -143,7 +143,7 @@ def already_logged():
         with open(LOG_PATH, newline="", encoding="utf-8") as handle:
             for row in csv.DictReader(handle):
                 if row.get("http", "").startswith("2"):
-                    done[row["address"].lower()] = row
+                    done[(row["address"].lower(), row.get("round") or "1")] = row
     return done
 
 
@@ -210,6 +210,7 @@ def main():
     parser.add_argument("--hourly-limit", type=int, default=10, help="your account's marketing mails per hour (10 while new; raise it here only after it was raised in Admin)")
     parser.add_argument("--start-in", type=float, default=3.0, help="minutes from now until the first mail (default 3)")
     parser.add_argument("--limit", type=int, default=0, help="only the first N addresses")
+    parser.add_argument("--total", type=int, default=0, help="send this many mails in all, going round the addresses again and again (e.g. 500 over 20 addresses = 25 each)")
     parser.add_argument("--key-file", default=os.path.join(HERE, ".api-key"))
     parser.add_argument("--tag", default="first-mails", help="label added to every mail as a category")
     parser.add_argument("--round", default="", help="add to the retry key when the same addresses are re-scheduled with new times after a cancel (e.g. r2)")
@@ -233,8 +234,10 @@ def main():
     if args.limit:
         addresses = addresses[: args.limit]
     done = already_logged()
-    todo = [a for a in addresses if a.lower() not in done]
-    print(f"{len(addresses)} addresses in the sheet, {len(addresses) - len(todo)} already scheduled earlier, {len(todo)} to do.")
+    count_wanted = args.total if args.total > 0 else len(addresses)
+    jobs = [(addresses[i % len(addresses)], i // len(addresses) + 1) for i in range(count_wanted)]
+    todo = [job for job in jobs if (job[0].lower(), str(job[1])) not in done]
+    print(f"{len(jobs)} mails planned over {len(addresses)} addresses, {len(jobs) - len(todo)} already scheduled earlier, {len(todo)} to do.")
     if not todo:
         return 0
     per_hour = min(len(todo), int(60 / args.interval) + 1)   # the most mails that can fall inside any one hour
@@ -245,17 +248,19 @@ def main():
             "and pass --hourly-limit with the new number."
         )
     for domain in ("outlook.com", "hotmail.com", "live.com", "gmail.com", "googlemail.com", "yahoo.com"):
-        count = sum(1 for a in todo if a.lower().endswith("@" + domain))
+        count = sum(1 for a, _ in todo if a.lower().endswith("@" + domain))
         if count > 50:
-            print(f"Note: {count} of these go to {domain}; new accounts may send only 50 a day to each big provider, so the rest would wait for the next day.")
+            print(f"Note: {count} of these go to {domain}; new accounts may send only 50 a day to each big provider unless the account has been moved up.")
 
     times = plan_send_times(len(todo), args.start_in, args.interval)
     if times[-1] - dt.datetime.now(dt.timezone.utc) > dt.timedelta(hours=70):
         sys.exit("That run would reach more than 70 hours ahead; the API only schedules up to 72. Use --limit and do the rest later.")
-    print(f"First mail {times[0]:%Y-%m-%d %H:%M} UTC, last {times[-1]:%Y-%m-%d %H:%M} UTC, one every {args.interval:g} minutes.\n")
-    for i, (address, when) in enumerate(zip(todo, times)):
-        template = TEMPLATES[(len(done) + i) % len(TEMPLATES)]
-        print(f"  {when:%H:%M}  {template['key']:<15} {address}")
+    print(f"First mail {times[0]:%Y-%m-%d %H:%M:%S} UTC, last {times[-1]:%Y-%m-%d %H:%M:%S} UTC, one every {args.interval * 60:g} seconds.\n")
+    shown = todo if len(todo) <= 40 else todo[:6]
+    for i, (address, rnd) in enumerate(shown):
+        print(f"  {times[i]:%H:%M:%S}  {TEMPLATES[(len(done) + i + rnd - 1) % len(TEMPLATES)]['key']:<15} round {rnd:<3} {address}")
+    if len(todo) > len(shown):
+        print(f"  ... {len(todo) - len(shown)} more")
 
     if not args.send:
         print("\nThis was only the plan. Add --send to schedule it.")
@@ -266,20 +271,21 @@ def main():
         sys.exit(f"No usable API key. Save it (the whole text, starting SGR.) in {args.key_file}")
     print()
     accepted = 0
-    for i, (address, when) in enumerate(zip(todo, times)):
-        template = TEMPLATES[(len(done) + i) % len(TEMPLATES)]
+    for i, ((address, rnd), when) in enumerate(zip(todo, times)):
+        template = TEMPLATES[(len(done) + i + rnd - 1) % len(TEMPLATES)]
         html, text = render(template, args.link)
+        subject = template["subject"] if rnd == 1 else f"{template['subject']} (no. {rnd})"
         body = {
             "fromEmail": args.sender,
             "toEmail": address,
-            "subject": template["subject"],
+            "subject": subject,
             "htmlContent": html,
             "textContent": text,
             "stream": "MARKETING",
             "categories": [args.tag, template["key"]],
             "sendAt": when.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
-        idem = f"{args.tag}{'-' + args.round if args.round else ''}-{hashlib.sha1(address.lower().encode()).hexdigest()[:16]}"
+        idem = f"{args.tag}{'-' + args.round if args.round else ''}-{hashlib.sha1(address.lower().encode()).hexdigest()[:16]}-{rnd}"
         for attempt in range(4):
             try:
                 status, payload, headers = call(base, key, "POST", "/api/v1/mail/send", body, idem)
@@ -293,11 +299,12 @@ def main():
                 continue
             break
         ok = status // 100 == 2
-        row = {"address": address, "template": template["key"], "send_at": body["sendAt"], "http": status}
+        row = {"address": address, "round": rnd, "template": template["key"], "send_at": body["sendAt"], "http": status}
         if ok:
             row.update(status=payload.get("status", ""), message_id=payload.get("messageId", ""), batch_id=payload.get("batchId", ""))
             accepted += 1
-            print(f"  ok    {address}  ({payload.get('status', '')})")
+            if len(todo) <= 40 or i % 25 == 0:
+                print(f"  ok    {i + 1}/{len(todo)}  {address}  ({payload.get('status', '')})")
         else:
             row.update(note=str(payload.get("message", payload))[:300])
             print(f"  FAIL  {address}  {status}  {row['note']}")
