@@ -4,6 +4,10 @@ server {
     http2 on;
     server_name __DOMAIN__ www.__DOMAIN__ _;
 
+    # Version number hidden, and the security headers (see security-headers.conf).
+    server_tokens off;
+    include /etc/nginx/snippets/postafly-security-headers.conf;
+
     ssl_certificate     /etc/letsencrypt/live/__DOMAIN__/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/__DOMAIN__/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;

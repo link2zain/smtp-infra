@@ -63,6 +63,10 @@ systemctl daemon-reload
 systemctl enable sengrid-backend
 systemctl restart sengrid-backend
 
+echo "==> Installing the security headers snippet"
+mkdir -p /etc/nginx/snippets
+cp "$SCRIPT_DIR/security-headers.conf" /etc/nginx/snippets/postafly-security-headers.conf
+
 echo "==> Installing the nginx site (frontend + /api + /actuator reverse proxy)"
 cp "$SCRIPT_DIR/nginx.conf" /etc/nginx/sites-available/sengrid
 ln -sf /etc/nginx/sites-available/sengrid /etc/nginx/sites-enabled/sengrid

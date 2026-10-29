@@ -36,6 +36,10 @@ certbot certonly --dns-cloudflare \
   --non-interactive --agree-tos "${EMAIL_ARGS[@]}" \
   --deploy-hook "systemctl reload nginx"
 
+echo "==> Installing the security headers snippet"
+mkdir -p /etc/nginx/snippets
+cp "$SCRIPT_DIR/security-headers.conf" /etc/nginx/snippets/postafly-security-headers.conf
+
 echo "==> Switching nginx to HTTPS"
 cp /etc/nginx/sites-available/sengrid /etc/nginx/sites-available/sengrid.before-https
 sed "s/__DOMAIN__/$DOMAIN/g" "$SCRIPT_DIR/nginx-https.conf.template" > /etc/nginx/sites-available/sengrid
